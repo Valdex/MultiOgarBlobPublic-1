@@ -30,29 +30,30 @@ Virus.prototype.onEat = function (prey) {
     }
 };
 
-Virus.prototype.onEaten = function (consumer) {
+/*Virus.prototype.onEaten = function (consumer) {
     var client = consumer.owner;
     if (client == null) return;
-    
+
     var maxSplit = this.gameServer.config.playerMaxCells - consumer.owner.cells.length;
     var masses = this.gameServer.splitMass(consumer.getMass(), maxSplit + 1);
     if (masses.length < 2) {
         return;
     }
-    
+
     // Balance mass around center & skip first mass (==consumer mass)
     var massesMix = [];
     for (var i = 1; i < masses.length; i += 2)
         massesMix.push(masses[i]);
     for (var i = 2; i < masses.length; i += 2)
-        massesMix.push(masses[i]);
+        massesMix.push(masses[i] * 1.55);
     masses = massesMix;
-    
+
     // Blow up the cell...
     var angle = 2 * Math.PI * Math.random();
     var step = 2 * Math.PI / masses.length;
     for (var i = 0; i < masses.length; i++) {
-        if (!this.gameServer.splitPlayerCell(client, consumer, angle, masses[i])) {
+        //if (!this.gameServer.splitPlayerCell(client, consumer, angle, masses[i])) {
+          if (!this.gameServer.splitPlayerCell(client, consumer, angle, masses[i])) {
             break;
         }
         angle += step;
@@ -60,8 +61,46 @@ Virus.prototype.onEaten = function (consumer) {
             angle -= 2 * Math.PI;
         }
     }
-};
+};*/
 
+Virus.prototype.onEaten = function (consumer) {
+    var client = consumer.owner;
+    if (!client) return; // Only players can explode
+    var minSize = 50, // maximum size of small splits
+        cellsLeft = this.gameServer.config.playerMaxCells - consumer.owner.cells.length, // how many cells can split
+        threshold = consumer.getMass() - cellsLeft * minSize; // size check for exploding cells
+        consumer.div = 20;
+    // Diverse explosion(s)
+    var big = []; // amount of big splits
+    if (cellsLeft <= 0) return; // cannot split
+    else if (cellsLeft == 1) big = [consumer.getMass() / 2];
+    else if (cellsLeft == 2) big = [consumer.getMass() / 4, consumer.getMass() / 4];
+    else if (cellsLeft == 3) big = [consumer.getMass() / 4, consumer.getMass() / 4, consumer.getMass() / 7];
+    else if (cellsLeft == 4) big = [consumer.getMass() / 5, consumer.getMass() / 7, consumer.getMass() / 8, consumer.getMass() / 10];
+    else if (cellsLeft == 5) big = [consumer.getMass() / 2, consumer.getMass() / 7, consumer.getMass() / 8, consumer.getMass() / 10, consumer.getMass() / 2];
+    else if (cellsLeft == 6) big = [consumer.getMass() / 12];
+    // Monotone explosion(s)
+    else if (consumer._size > 216) {
+        // virus explosion multipliers
+        var exp = (4.55 - 4.55) + 3.885;
+        while (threshold / exp > 24) {
+            threshold /= exp;
+            exp = 1.7;
+            big.push(threshold >> 0);
+        }
+    }
+    cellsLeft -= big.length;
+    // big splits
+    for (var k = 0; k < big.length; k++) {
+        var angle = 2 * Math.PI * Math.random(); // random directions
+        this.gameServer.splitPlayerCell(client, consumer, angle, big[k]);
+    }
+    // small splits
+    for (var k = 0; k < cellsLeft; k++) {
+        angle = 2 * Math.PI * Math.random(); // random directions
+        this.gameServer.splitPlayerCell(consumer.owner, consumer, angle, minSize);
+    }
+};
 Virus.prototype.onAdd = function (gameServer) {
     gameServer.nodesVirus.push(this);
 };
